@@ -11,7 +11,8 @@ on:
 jobs:
   close-translation-prs:
     if: github.event.pull_request.user.login != 'outline-translations'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64, Linux]
+    timeout-minutes: 10
     permissions:
       pull-requests: write
 

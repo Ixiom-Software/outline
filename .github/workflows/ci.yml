@@ -20,9 +20,12 @@ jobs:
   changes:
     # Blacksmith runners are only available to the outline organization, and are
     # not used for pull requests from forks.
-    runs-on: ${{ (github.repository_owner == 'outline' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && 'blacksmith-8vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    # Elsewhere (ixiom-software fork) jobs run on the org self-hosted Linux runner.
+    runs-on: ${{ (github.repository_owner == 'outline' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && 'blacksmith-8vcpu-ubuntu-2404' || fromJSON('["self-hosted","X64","Linux"]') }}
+    timeout-minutes: 10
     outputs:
-      runner: ${{ (github.repository_owner == 'outline' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && 'blacksmith-8vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+      # JSON encoded so the self-hosted label array survives as a job output.
+      runner: ${{ (github.repository_owner == 'outline' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && '["blacksmith-8vcpu-ubuntu-2404"]' || '["self-hosted","X64","Linux"]' }}
       code: ${{ steps.filter.outputs.code }}
       config: ${{ steps.filter.outputs.config }}
       server: ${{ steps.filter.outputs.server }}
@@ -63,7 +66,8 @@ jobs:
   lint:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/install
@@ -72,7 +76,8 @@ jobs:
   actionlint:
     needs: changes
     if: ${{ needs.changes.outputs.config == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64, Linux]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: docker://rhysd/actionlint:1.7.12
@@ -82,7 +87,8 @@ jobs:
   types:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/install
@@ -92,7 +98,8 @@ jobs:
   audit:
     needs: changes
     if: ${{ needs.changes.outputs.deps == 'true' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/install
@@ -110,7 +117,8 @@ jobs:
   test:
     needs: changes
     if: ${{ needs.changes.outputs.app == 'true' || needs.changes.outputs.config == 'true' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 30
     strategy:
       matrix:
         test-group: [app, shared]
@@ -122,7 +130,8 @@ jobs:
   test-server:
     needs: changes
     if: ${{ needs.changes.outputs.server == 'true' || needs.changes.outputs.config == 'true' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 45
     strategy:
       matrix:
         shard: [1, 2, 3, 4, 5, 6]
@@ -145,7 +154,8 @@ jobs:
   bundle-size:
     needs: changes
     if: ${{ (needs.changes.outputs.app == 'true' || needs.changes.outputs.config == 'true') && github.repository == 'outline/outline' }}
-    runs-on: ${{ needs.changes.outputs.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner) }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/install
@@ -171,7 +181,8 @@ jobs:
   ci:
     needs: [changes, lint, actionlint, types, test, test-server, bundle-size]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64, Linux]
+    timeout-minutes: 5
     steps:
       - name: Check job results
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

@@ -12,7 +12,8 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64, Linux]
+    timeout-minutes: 60
     permissions:
       actions: read
       contents: read
